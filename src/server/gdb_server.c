@@ -1714,7 +1714,7 @@ static int gdb_step_continue_packet(struct connection *connection,
 		address = strtoull(packet + 1, NULL, 16);
 	else
 		current = true;
-    
+
     if (target->frozen && target->smp)
     {
 	    struct target_list *head;
@@ -1911,31 +1911,29 @@ static int compare_bank(const void *a, const void *b)
 		return -1;
 }
 
-extern struct target_type mips_m4k_target;
-
 static target_addr_t extend_address_for_gdb(struct target *target, target_addr_t address)
 {
 	/* This is a workaround to memory accessing problems on the MIPS32 architecture (specifically, PIC32) explained below:
-	 
+
 		1. GDB 10.2 unconditionally defines CORE_ADDR (target address) as uint64_t in gdbsupport/common-types.h:
 			typedef uint64_t CORE_ADDR;
 		2. By default, gdb uses unsigned address extension. See gdbarch.c:
 			gdbarch->pointer_to_address = unsigned_pointer_to_address;
 		3. MIPS implementation in gdb specifically overrides it to signed extension. See mips-tdep.c:
 			set_gdbarch_pointer_to_address (gdbarch, signed_pointer_to_address);
-			
+
 		As a result, target addresses on the GDB side are sign-extended, and when they are matched against zero-extended
 		memory map reported by OpenOCD, gdb finds no matching memory regions and aborts the memory access operation.
-		
+
 		We work around it by sign-extending the memory region addresses reported to gdb to match the gdb behavior.
 	*/
-	
+
 	if (target->gdb_sign_extends_addresses)
 	{
 		if ((address & 0xFFFFFFFF80000000ULL) == 0x80000000)
 			address |= 0xFFFFFFFF00000000ULL;
 	}
-	
+
 	return address;
 }
 
@@ -1997,7 +1995,7 @@ static int gdb_memory_map(struct connection *connection,
 		unsigned int group_len = 0;
 
 		p = banks[i];
-		
+
 		target_addr_t extended_base = extend_address_for_gdb(target, p->base);
 
 		if (ram_start < extended_base)
@@ -3367,7 +3365,7 @@ static int gdb_v_packet(struct connection *connection,
     	{
         	LOG_INFO("Erasing FLASH: 0x%08x-0x%08x...", (uint32_t)addr, (uint32_t)(addr + length));
     	}
-    	
+
 		result = flash_erase_address_range(target,
 				false, addr, length);
 		/* perform any target specific operations after the erase */

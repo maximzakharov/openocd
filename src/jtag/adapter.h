@@ -33,6 +33,24 @@ enum adapter_gpio_init_state {
 	ADAPTER_GPIO_INIT_STATE_INPUT,
 };
 
+enum adapter_gpio_restore_mode {
+	ADAPTER_GPIO_RESTORE_MODE_INPUT = 0,
+	ADAPTER_GPIO_RESTORE_MODE_OUTPUT = 1,
+	ADAPTER_GPIO_RESTORE_RESTORE_MODE_ALT0 = 4,
+	ADAPTER_GPIO_RESTORE_RESTORE_MODE_ALT1 = 5,
+	ADAPTER_GPIO_RESTORE_RESTORE_MODE_ALT2 = 6,
+	ADAPTER_GPIO_RESTORE_RESTORE_MODE_ALT3 = 7,
+	ADAPTER_GPIO_RESTORE_RESTORE_MODE_ALT4 = 3,
+	ADAPTER_GPIO_RESTORE_RESTORE_MODE_ALT5 = 2,
+};
+
+/** Supported SWD write modes */
+enum adapter_swd_write_mode {
+	ADAPTER_SWD_WRITE_MODE_AUTO = 0,    /* Use automatic selection based on drive mode */
+	ADAPTER_SWD_WRITE_MODE_GENERIC = 1, /* Force generic write method */
+	ADAPTER_SWD_WRITE_MODE_FAST = 2,    /* Force fast write method */
+};
+
 /** Supported pull directions for GPIO */
 enum adapter_gpio_pull {
 	ADAPTER_GPIO_PULL_NONE,
@@ -63,6 +81,8 @@ struct adapter_gpio_config {
 	enum adapter_gpio_init_state init_state;
 	bool active_low;
 	enum adapter_gpio_pull pull;
+	enum adapter_gpio_restore_mode restore_mode;
+	enum adapter_swd_write_mode swd_write_mode; /* For SWD operations */
 };
 
 struct command_context;

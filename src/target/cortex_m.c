@@ -1199,7 +1199,7 @@ static int cortex_m_poll(struct target *target)
 static int cortex_m_halt_one(struct target *target)
 {
 	int retval;
-	struct cortex_m_common *cortex_m = target_to_cm(target);
+	target_to_cm(target);
 	LOG_TARGET_DEBUG(target, "target->state: %s", target_state_name(target));
 
 	if (!target_was_examined(target)) {
@@ -1697,12 +1697,12 @@ static int dap_lpc55sx_start_debug_session(struct adiv5_dap *dap)
 {
 	int retval;
 	struct adiv5_ap *ap = dap_get_ap(dap, 2);
-		
+
 	uint32_t ap_id = 0;
 	retval = dap_queue_ap_read(ap, DM_AP_ID, &ap_id);
 	if (retval != ERROR_OK)
 		return retval;
-	
+
 	retval = dap_run(dap);
 	if (retval != ERROR_OK)
 		return retval;
@@ -1710,9 +1710,9 @@ static int dap_lpc55sx_start_debug_session(struct adiv5_dap *dap)
 	if (ap_id != 0x002A0000)
 	{
 		LOG_ERROR("Unexpected DM-AP ID: %08x\r\n", ap_id);
-		return E_FAIL;
+		return ERROR_FAIL;
 	}
-	
+
 	retval = dap_queue_ap_write(ap, DM_AP_CSW, 0x21);	//RESYNC_REQ + CHIP_RESET_REQ
 	if(retval != ERROR_OK)
 		return retval;
@@ -1720,7 +1720,7 @@ static int dap_lpc55sx_start_debug_session(struct adiv5_dap *dap)
 	retval = dap_run(dap);
 	if (retval != ERROR_OK)
 		return retval;
-	
+
 	alive_sleep(150);
 	int64_t start = timeval_ms();
 
@@ -1733,10 +1733,10 @@ static int dap_lpc55sx_start_debug_session(struct adiv5_dap *dap)
 		retval = dap_run(dap);
 		if (retval != ERROR_OK)
 			return retval;
-		
+
 		if ((timeval_ms() - start) > 1000)
 			return ERROR_TIMEOUT;
-	}	
+	}
 	retval = dap_queue_ap_write(ap, DM_AP_REQUEST, 7);	//START_DBG_SESSION
 	if(retval != ERROR_OK)
 		return retval;
@@ -1754,11 +1754,11 @@ static int dap_lpc55sx_start_debug_session(struct adiv5_dap *dap)
 		retval = dap_run(dap);
 		if (retval != ERROR_OK)
 			return retval;
-		
+
 		if ((timeval_ms() - start) > 1000)
 			return ERROR_TIMEOUT;
 	}
-	
+
 	dap_invalidate_cache(dap);
 	return ERROR_OK;
 }
@@ -1769,17 +1769,17 @@ static int cortex_m_reset_lpc55sx_using_dm_ap(struct target *target)
 	int retval = dap_lpc55sx_start_debug_session(armv7m->debug_ap->dap);
 	if (retval != ERROR_OK)
 		return retval;
-	
+
 	target->state = TARGET_RESET;
-	
+
 	retval = target_halt(target);
 	if (retval != ERROR_OK)
 		return retval;
-	
+
 	retval = target_wait_state(target, TARGET_HALTED, 1000);
 	if (retval != ERROR_OK)
 		return retval;
-	
+
 	return ERROR_OK;
 }
 
@@ -1791,27 +1791,27 @@ static int cortex_m_reset_lpc55sx(struct target *target)
 	int retval = ERROR_OK;
 	uint32_t breakpointAddress = 0;
 	struct armv7m_common *armv7m = target_to_armv7m(target);
-	
+
 	if (target->reset_halt)
 	{
 		retval = target_halt(target);
 		if (retval != ERROR_OK)
 			return retval;
-				
+
 		retval = target_wait_state(target, TARGET_HALTED, 1000);
 		if (retval != ERROR_OK)
 			return retval;
-		
+
 		uint32_t entryPoint = 0;
-		
+
 		retval = target_read_memory(target, 0 + 4, 4, 1, (uint8_t *)&entryPoint);
-		if (retval == ERROR_OK && entryPoint != 0 && entryPoint != -1)
+		if (retval == ERROR_OK && entryPoint != 0 && (int)entryPoint != -1)
 		{
 			retval = breakpoint_add(target, entryPoint, 2, BKPT_HARD);
 			if (retval == ERROR_OK)
 				breakpointAddress = entryPoint;
 		}
-		
+
 		if (breakpointAddress)
 		{
 			LOG_INFO("LPC55Sx: found entry point at 0x%08x.", breakpointAddress);
@@ -1822,12 +1822,12 @@ static int cortex_m_reset_lpc55sx(struct target *target)
 			return cortex_m_reset_lpc55sx_using_dm_ap(target);
 		}
 	}
-		
+
 	mem_ap_write_atomic_u32(armv7m->debug_ap, NVIC_AIRCR, AIRCR_VECTKEY | AIRCR_SYSRESETREQ);
-	
+
 	alive_sleep(120);
 	target->state = TARGET_RESET;
-	
+
 	if (breakpointAddress)
 	{
 		retval = target_wait_state(target, TARGET_HALTED, 250);
@@ -1838,7 +1838,7 @@ static int cortex_m_reset_lpc55sx(struct target *target)
 			return cortex_m_reset_lpc55sx_using_dm_ap(target);
 		}
 	}
-	
+
 	return ERROR_OK;
 }
 
@@ -3270,7 +3270,7 @@ COMMAND_HANDLER(handle_cortex_m_reset_config_command)
 				cortex_m->soft_reset_config = CORTEX_M_RESET_VECTRESET;
 
 		}
-		else if (stricmp(*CMD_ARGV, "lpc55sxx") == 0)
+		else if (strncmp(*CMD_ARGV, "lpc55sxx", strlen("lpc55sxx")) == 0)
 			cortex_m->soft_reset_config = CORTEX_M_RESET_LPC55SX;
 		else
 			return ERROR_COMMAND_SYNTAX_ERROR;

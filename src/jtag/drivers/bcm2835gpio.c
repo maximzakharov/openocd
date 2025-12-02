@@ -21,37 +21,42 @@
 
 static char *bcm2835_peri_mem_dev;
 static off_t bcm2835_peri_base = 0x20000000;
-#define BCM2835_GPIO_BASE	(bcm2835_peri_base + 0x200000) /* GPIO controller */
+#define BCM2835_GPIO_BASE (bcm2835_peri_base + 0x200000) /* GPIO controller */
 
-#define BCM2835_PADS_GPIO_0_27		(bcm2835_peri_base + 0x100000)
-#define BCM2835_PADS_GPIO_0_27_OFFSET	(0x2c / 4)
+#define BCM2835_PADS_GPIO_0_27 (bcm2835_peri_base + 0x100000)
+#define BCM2835_PADS_GPIO_0_27_OFFSET (0x2c / 4)
 
 /* See "GPIO Function Select Registers (GPFSELn)" in "Broadcom BCM2835 ARM Peripherals" datasheet. */
 #define BCM2835_GPIO_MODE_INPUT 0
 #define BCM2835_GPIO_MODE_OUTPUT 1
 
 /* GPIO setup macros */
-#define MODE_GPIO(_g) ({                                   \
-	typeof(_g) g = (_g);                                   \
-	*(pio_base + (g / 10)) >> ((g % 10) * 3) & 7;          \
-})
+#define MODE_GPIO(_g)                                 \
+	({                                                \
+		typeof(_g) g = (_g);                          \
+		*(pio_base + (g / 10)) >> ((g % 10) * 3) & 7; \
+	})
 
-#define INP_GPIO(_g) do {                                  \
-	typeof(_g) g1 = (_g);                                  \
-	*(pio_base + (g1 / 10)) &= ~(7 << ((g1 % 10) * 3));    \
-} while (0)
+#define INP_GPIO(_g)                                        \
+	do {                                                    \
+		typeof(_g) g1 = (_g);                               \
+		*(pio_base + (g1 / 10)) &= ~(7 << ((g1 % 10) * 3)); \
+	} while (0)
 
-#define SET_MODE_GPIO(_g, m) do {                          \
-	typeof(_g) g = (_g);                                   \
-	/* clear the mode bits first, then set as necessary */ \
-	INP_GPIO(g);                                           \
-	*(pio_base + (g / 10)) |= ((m) << ((g % 10) * 3));     \
-} while (0)
+#define SET_MODE_GPIO(_g, m)                                   \
+	do {                                                       \
+		typeof(_g) g = (_g);                                   \
+		/* clear the mode bits first, then set as necessary */ \
+		INP_GPIO(g);                                           \
+		*(pio_base + (g / 10)) |= ((m) << ((g % 10) * 3));     \
+	} while (0)
 
 #define OUT_GPIO(g) SET_MODE_GPIO(g, BCM2835_GPIO_MODE_OUTPUT)
 
-#define GPIO_SET (*(pio_base + 7))  /* sets   bits which are 1, ignores bits which are 0 */
-#define GPIO_CLR (*(pio_base + 10)) /* clears bits which are 1, ignores bits which are 0 */
+#define GPIO_SET \
+	(*(pio_base + 7)) /* sets   bits which are 1, ignores bits which are 0 */
+#define GPIO_CLR \
+	(*(pio_base + 10)) /* clears bits which are 1, ignores bits which are 0 */
 #define GPIO_LEV (*(pio_base + 13)) /* current level of the pin */
 
 static int dev_mem_fd;
@@ -90,7 +95,7 @@ static inline void bcm2835_gpio_synchronize(void)
 static inline void bcm2835_delay(void)
 {
 	for (unsigned int i = 0; i < jtag_delay; i++)
-		asm volatile ("");
+		asm volatile("");
 }
 
 static bool is_gpio_config_valid(enum adapter_gpio_config_index idx)
@@ -99,35 +104,36 @@ static bool is_gpio_config_valid(enum adapter_gpio_config_index idx)
 	return adapter_gpio_config[idx].gpio_num <= 31;
 }
 
-static void set_gpio_value(const struct adapter_gpio_config *gpio_config, int value)
+static void set_gpio_value(const struct adapter_gpio_config *gpio_config,
+						   int value)
 {
 	value = value ^ (gpio_config->active_low ? 1 : 0);
 	switch (gpio_config->drive) {
-	case ADAPTER_GPIO_DRIVE_MODE_PUSH_PULL:
-		if (value)
-			GPIO_SET = 1 << gpio_config->gpio_num;
-		else
-			GPIO_CLR = 1 << gpio_config->gpio_num;
-		/* For performance reasons assume the GPIO is already set as an output
+		case ADAPTER_GPIO_DRIVE_MODE_PUSH_PULL:
+			if (value)
+				GPIO_SET = 1 << gpio_config->gpio_num;
+			else
+				GPIO_CLR = 1 << gpio_config->gpio_num;
+			/* For performance reasons assume the GPIO is already set as an output
 		 * and therefore the call can be omitted here.
 		 */
-		break;
-	case ADAPTER_GPIO_DRIVE_MODE_OPEN_DRAIN:
-		if (value) {
-			INP_GPIO(gpio_config->gpio_num);
-		} else {
-			GPIO_CLR = 1 << gpio_config->gpio_num;
-			OUT_GPIO(gpio_config->gpio_num);
-		}
-		break;
-	case ADAPTER_GPIO_DRIVE_MODE_OPEN_SOURCE:
-		if (value) {
-			GPIO_SET = 1 << gpio_config->gpio_num;
-			OUT_GPIO(gpio_config->gpio_num);
-		} else {
-			INP_GPIO(gpio_config->gpio_num);
-		}
-		break;
+			break;
+		case ADAPTER_GPIO_DRIVE_MODE_OPEN_DRAIN:
+			if (value) {
+				INP_GPIO(gpio_config->gpio_num);
+			} else {
+				GPIO_CLR = 1 << gpio_config->gpio_num;
+				OUT_GPIO(gpio_config->gpio_num);
+			}
+			break;
+		case ADAPTER_GPIO_DRIVE_MODE_OPEN_SOURCE:
+			if (value) {
+				GPIO_SET = 1 << gpio_config->gpio_num;
+				OUT_GPIO(gpio_config->gpio_num);
+			} else {
+				INP_GPIO(gpio_config->gpio_num);
+			}
+			break;
 	}
 	bcm2835_gpio_synchronize();
 }
@@ -135,7 +141,8 @@ static void set_gpio_value(const struct adapter_gpio_config *gpio_config, int va
 static void restore_gpio(enum adapter_gpio_config_index idx)
 {
 	if (is_gpio_config_valid(idx)) {
-		SET_MODE_GPIO(adapter_gpio_config[idx].gpio_num, initial_gpio_state[idx].mode);
+		SET_MODE_GPIO(adapter_gpio_config[idx].gpio_num,
+					  adapter_gpio_config[idx].restore_mode);
 		if (initial_gpio_state[idx].mode == BCM2835_GPIO_MODE_OUTPUT) {
 			if (initial_gpio_state[idx].output_level)
 				GPIO_SET = 1 << adapter_gpio_config[idx].gpio_num;
@@ -155,29 +162,30 @@ static void initialize_gpio(enum adapter_gpio_config_index idx)
 	unsigned int shift = adapter_gpio_config[idx].gpio_num;
 	initial_gpio_state[idx].output_level = (GPIO_LEV >> shift) & 1;
 	LOG_DEBUG("saved GPIO mode for %s (GPIO %d %d): %d",
-			adapter_gpio_get_name(idx), adapter_gpio_config[idx].chip_num, adapter_gpio_config[idx].gpio_num,
-			initial_gpio_state[idx].mode);
+			  adapter_gpio_get_name(idx), adapter_gpio_config[idx].chip_num,
+			  adapter_gpio_config[idx].gpio_num, initial_gpio_state[idx].mode);
 
 	if (adapter_gpio_config[idx].pull != ADAPTER_GPIO_PULL_NONE) {
-		LOG_WARNING("BCM2835 GPIO does not support pull-up or pull-down settings (signal %s)",
+		LOG_WARNING(
+			"BCM2835 GPIO does not support pull-up or pull-down settings (signal %s)",
 			adapter_gpio_get_name(idx));
 	}
 
 	switch (adapter_gpio_config[idx].init_state) {
-	case ADAPTER_GPIO_INIT_STATE_INACTIVE:
-		set_gpio_value(&adapter_gpio_config[idx], 0);
-		break;
-	case ADAPTER_GPIO_INIT_STATE_ACTIVE:
-		set_gpio_value(&adapter_gpio_config[idx], 1);
-		break;
-	case ADAPTER_GPIO_INIT_STATE_INPUT:
-		INP_GPIO(adapter_gpio_config[idx].gpio_num);
-		break;
+		case ADAPTER_GPIO_INIT_STATE_INACTIVE:
+			set_gpio_value(&adapter_gpio_config[idx], 0);
+			break;
+		case ADAPTER_GPIO_INIT_STATE_ACTIVE:
+			set_gpio_value(&adapter_gpio_config[idx], 1);
+			break;
+		case ADAPTER_GPIO_INIT_STATE_INPUT:
+			INP_GPIO(adapter_gpio_config[idx].gpio_num);
+			break;
 	}
 
 	/* Direction for non push-pull is already set by set_gpio_value() */
-	if (adapter_gpio_config[idx].drive == ADAPTER_GPIO_DRIVE_MODE_PUSH_PULL
-		&& adapter_gpio_config[idx].init_state != ADAPTER_GPIO_INIT_STATE_INPUT)
+	if (adapter_gpio_config[idx].drive == ADAPTER_GPIO_DRIVE_MODE_PUSH_PULL &&
+		adapter_gpio_config[idx].init_state != ADAPTER_GPIO_INIT_STATE_INPUT)
 		OUT_GPIO(adapter_gpio_config[idx].gpio_num);
 	bcm2835_gpio_synchronize();
 }
@@ -186,17 +194,20 @@ static enum bb_value bcm2835gpio_read(void)
 {
 	unsigned int shift = adapter_gpio_config[ADAPTER_GPIO_IDX_TDO].gpio_num;
 	uint32_t value = (GPIO_LEV >> shift) & 1;
-	return value ^ (adapter_gpio_config[ADAPTER_GPIO_IDX_TDO].active_low ? BB_HIGH : BB_LOW);
+	return value ^
+		   (adapter_gpio_config[ADAPTER_GPIO_IDX_TDO].active_low ? BB_HIGH :
+																   BB_LOW);
 }
 
 static int bcm2835gpio_write(int tck, int tms, int tdi)
 {
 	uint32_t set = tck << adapter_gpio_config[ADAPTER_GPIO_IDX_TCK].gpio_num |
-			tms << adapter_gpio_config[ADAPTER_GPIO_IDX_TMS].gpio_num |
-			tdi << adapter_gpio_config[ADAPTER_GPIO_IDX_TDI].gpio_num;
-	uint32_t clear = !tck << adapter_gpio_config[ADAPTER_GPIO_IDX_TCK].gpio_num |
-			!tms << adapter_gpio_config[ADAPTER_GPIO_IDX_TMS].gpio_num |
-			!tdi << adapter_gpio_config[ADAPTER_GPIO_IDX_TDI].gpio_num;
+				   tms << adapter_gpio_config[ADAPTER_GPIO_IDX_TMS].gpio_num |
+				   tdi << adapter_gpio_config[ADAPTER_GPIO_IDX_TDI].gpio_num;
+	uint32_t clear =
+		!tck << adapter_gpio_config[ADAPTER_GPIO_IDX_TCK].gpio_num |
+		!tms << adapter_gpio_config[ADAPTER_GPIO_IDX_TMS].gpio_num |
+		!tdi << adapter_gpio_config[ADAPTER_GPIO_IDX_TDI].gpio_num;
 
 	GPIO_SET = set;
 	GPIO_CLR = clear;
@@ -210,13 +221,17 @@ static int bcm2835gpio_write(int tck, int tms, int tdi)
 /* Requires push-pull drive mode for swclk and swdio */
 static int bcm2835gpio_swd_write_fast(int swclk, int swdio)
 {
-	swclk = swclk ^ (adapter_gpio_config[ADAPTER_GPIO_IDX_SWCLK].active_low ? 1 : 0);
-	swdio = swdio ^ (adapter_gpio_config[ADAPTER_GPIO_IDX_SWDIO].active_low ? 1 : 0);
+	swclk = swclk ^
+			(adapter_gpio_config[ADAPTER_GPIO_IDX_SWCLK].active_low ? 1 : 0);
+	swdio = swdio ^
+			(adapter_gpio_config[ADAPTER_GPIO_IDX_SWDIO].active_low ? 1 : 0);
 
-	uint32_t set = swclk << adapter_gpio_config[ADAPTER_GPIO_IDX_SWCLK].gpio_num |
-					swdio << adapter_gpio_config[ADAPTER_GPIO_IDX_SWDIO].gpio_num;
-	uint32_t clear = !swclk << adapter_gpio_config[ADAPTER_GPIO_IDX_SWCLK].gpio_num |
-					!swdio << adapter_gpio_config[ADAPTER_GPIO_IDX_SWDIO].gpio_num;
+	uint32_t set =
+		swclk << adapter_gpio_config[ADAPTER_GPIO_IDX_SWCLK].gpio_num |
+		swdio << adapter_gpio_config[ADAPTER_GPIO_IDX_SWDIO].gpio_num;
+	uint32_t clear =
+		!swclk << adapter_gpio_config[ADAPTER_GPIO_IDX_SWCLK].gpio_num |
+		!swdio << adapter_gpio_config[ADAPTER_GPIO_IDX_SWDIO].gpio_num;
 
 	GPIO_SET = set;
 	GPIO_CLR = clear;
@@ -231,7 +246,8 @@ static int bcm2835gpio_swd_write_fast(int swclk, int swdio)
 static int bcm2835gpio_swd_write_generic(int swclk, int swdio)
 {
 	set_gpio_value(&adapter_gpio_config[ADAPTER_GPIO_IDX_SWDIO], swdio);
-	set_gpio_value(&adapter_gpio_config[ADAPTER_GPIO_IDX_SWCLK], swclk); /* Write clock last */
+	set_gpio_value(&adapter_gpio_config[ADAPTER_GPIO_IDX_SWCLK],
+				   swclk); /* Write clock last */
 
 	bcm2835_delay();
 
@@ -251,13 +267,11 @@ static int bcm2835gpio_reset(int trst, int srst)
 	if (is_gpio_config_valid(ADAPTER_GPIO_IDX_TRST))
 		set_gpio_value(&adapter_gpio_config[ADAPTER_GPIO_IDX_TRST], trst);
 
-	LOG_DEBUG("trst %d gpio: %d %d, srst %d gpio: %d %d",
-		trst,
-		(int)adapter_gpio_config[ADAPTER_GPIO_IDX_TRST].chip_num,
-		(int)adapter_gpio_config[ADAPTER_GPIO_IDX_TRST].gpio_num,
-		srst,
-		(int)adapter_gpio_config[ADAPTER_GPIO_IDX_SRST].chip_num,
-		(int)adapter_gpio_config[ADAPTER_GPIO_IDX_SRST].gpio_num);
+	LOG_DEBUG("trst %d gpio: %d %d, srst %d gpio: %d %d", trst,
+			  (int)adapter_gpio_config[ADAPTER_GPIO_IDX_TRST].chip_num,
+			  (int)adapter_gpio_config[ADAPTER_GPIO_IDX_TRST].gpio_num, srst,
+			  (int)adapter_gpio_config[ADAPTER_GPIO_IDX_SRST].chip_num,
+			  (int)adapter_gpio_config[ADAPTER_GPIO_IDX_SRST].gpio_num);
 	return ERROR_OK;
 }
 
@@ -279,7 +293,8 @@ static int bcm2835_swdio_read(void)
 {
 	unsigned int shift = adapter_gpio_config[ADAPTER_GPIO_IDX_SWDIO].gpio_num;
 	uint32_t value = (GPIO_LEV >> shift) & 1;
-	return value ^ (adapter_gpio_config[ADAPTER_GPIO_IDX_SWDIO].active_low ? 1 : 0);
+	return value ^
+		   (adapter_gpio_config[ADAPTER_GPIO_IDX_SWDIO].active_low ? 1 : 0);
 }
 
 static int bcm2835gpio_khz(int khz, int *jtag_speed)
@@ -366,7 +381,8 @@ static const struct command_registration bcm2835gpio_subcommand_handlers[] = {
 		.name = "peripheral_base",
 		.handler = &bcm2835gpio_handle_peripheral_base,
 		.mode = COMMAND_CONFIG,
-		.help = "peripheral base to access GPIOs, not needed with /dev/gpiomem.",
+		.help =
+			"peripheral base to access GPIOs, not needed with /dev/gpiomem.",
 		.usage = "[base]",
 	},
 
@@ -467,7 +483,7 @@ static int bcm2835gpio_init(void)
 	}
 
 	pio_base = mmap(NULL, sysconf(_SC_PAGE_SIZE), PROT_READ | PROT_WRITE,
-				MAP_SHARED, dev_mem_fd, BCM2835_GPIO_BASE);
+					MAP_SHARED, dev_mem_fd, BCM2835_GPIO_BASE);
 
 	if (pio_base == MAP_FAILED) {
 		LOG_ERROR("mmap: %s", strerror(errno));
@@ -478,11 +494,12 @@ static int bcm2835gpio_init(void)
 	/* TODO: move pads config to a separate utility */
 	if (pad_mapping_possible) {
 		pads_base = mmap(NULL, sysconf(_SC_PAGE_SIZE), PROT_READ | PROT_WRITE,
-				MAP_SHARED, dev_mem_fd, BCM2835_PADS_GPIO_0_27);
+						 MAP_SHARED, dev_mem_fd, BCM2835_PADS_GPIO_0_27);
 
 		if (pads_base == MAP_FAILED) {
 			LOG_ERROR("mmap pads: %s", strerror(errno));
-			LOG_WARNING("Continuing with unchanged GPIO pad settings (drive strength and slew rate)");
+			LOG_WARNING(
+				"Continuing with unchanged GPIO pad settings (drive strength and slew rate)");
 		}
 	} else {
 		pads_base = MAP_FAILED;
@@ -492,10 +509,13 @@ static int bcm2835gpio_init(void)
 
 	if (pads_base != MAP_FAILED) {
 		/* set 4mA drive strength, slew rate limited, hysteresis on */
-		initial_drive_strength_etc = pads_base[BCM2835_PADS_GPIO_0_27_OFFSET] & 0x1f;
-LOG_INFO("initial pads conf %08x", pads_base[BCM2835_PADS_GPIO_0_27_OFFSET]);
+		initial_drive_strength_etc = pads_base[BCM2835_PADS_GPIO_0_27_OFFSET] &
+									 0x1f;
+		LOG_INFO("initial pads conf %08x",
+				 pads_base[BCM2835_PADS_GPIO_0_27_OFFSET]);
 		pads_base[BCM2835_PADS_GPIO_0_27_OFFSET] = 0x5a000008 + 1;
-LOG_INFO("pads conf set to %08x", pads_base[BCM2835_PADS_GPIO_0_27_OFFSET]);
+		LOG_INFO("pads conf set to %08x",
+				 pads_base[BCM2835_PADS_GPIO_0_27_OFFSET]);
 	}
 
 	/* Configure JTAG/SWD signals. Default directions and initial states are handled
@@ -516,7 +536,8 @@ LOG_INFO("pads conf set to %08x", pads_base[BCM2835_PADS_GPIO_0_27_OFFSET]);
 		 * external buffer is configured to send the swdio signal from the
 		 * target to the AM335x.
 		 */
-		if (adapter_gpio_config[ADAPTER_GPIO_IDX_SWDIO].init_state == ADAPTER_GPIO_INIT_STATE_INPUT) {
+		if (adapter_gpio_config[ADAPTER_GPIO_IDX_SWDIO].init_state ==
+			ADAPTER_GPIO_INIT_STATE_INPUT) {
 			initialize_gpio(ADAPTER_GPIO_IDX_SWDIO);
 			initialize_gpio(ADAPTER_GPIO_IDX_SWDIO_DIR);
 		} else {
@@ -526,13 +547,24 @@ LOG_INFO("pads conf set to %08x", pads_base[BCM2835_PADS_GPIO_0_27_OFFSET]);
 
 		initialize_gpio(ADAPTER_GPIO_IDX_SWCLK);
 
-		if (adapter_gpio_config[ADAPTER_GPIO_IDX_SWCLK].drive == ADAPTER_GPIO_DRIVE_MODE_PUSH_PULL &&
-				adapter_gpio_config[ADAPTER_GPIO_IDX_SWDIO].drive == ADAPTER_GPIO_DRIVE_MODE_PUSH_PULL) {
-			LOG_DEBUG("BCM2835 GPIO using fast mode for SWD write");
+		/* Check if user has explicitly selected SWD write mode via command line
+		 * option */
+		if (adapter_gpio_config[ADAPTER_GPIO_IDX_SWDIO].swd_write_mode ==
+			ADAPTER_SWD_WRITE_MODE_FAST) {
 			bcm2835gpio_bitbang.swd_write = bcm2835gpio_swd_write_fast;
-		} else {
-			LOG_DEBUG("BCM2835 GPIO using generic mode for SWD write");
+		} else if (adapter_gpio_config[ADAPTER_GPIO_IDX_SWDIO].swd_write_mode ==
+				   ADAPTER_SWD_WRITE_MODE_GENERIC) {
 			bcm2835gpio_bitbang.swd_write = bcm2835gpio_swd_write_generic;
+		} else { /* ADAPTER_SWD_WRITE_MODE_AUTO */
+			/* Use automatic selection based on drive mode */
+			if (adapter_gpio_config[ADAPTER_GPIO_IDX_SWCLK].drive ==
+					ADAPTER_GPIO_DRIVE_MODE_PUSH_PULL &&
+				adapter_gpio_config[ADAPTER_GPIO_IDX_SWDIO].drive ==
+					ADAPTER_GPIO_DRIVE_MODE_PUSH_PULL) {
+				bcm2835gpio_bitbang.swd_write = bcm2835gpio_swd_write_fast;
+			} else {
+				bcm2835gpio_bitbang.swd_write = bcm2835gpio_swd_write_generic;
+			}
 		}
 	}
 
@@ -569,7 +601,8 @@ static int bcm2835gpio_quit(void)
 
 	if (pads_base != MAP_FAILED) {
 		/* Restore drive strength. MSB is password ("5A") */
-		pads_base[BCM2835_PADS_GPIO_0_27_OFFSET] = 0x5A000000 | initial_drive_strength_etc;
+		pads_base[BCM2835_PADS_GPIO_0_27_OFFSET] = 0x5A000000 |
+												   initial_drive_strength_etc;
 	}
 	bcm2835gpio_munmap();
 	free(bcm2835_peri_mem_dev);
@@ -577,8 +610,7 @@ static int bcm2835gpio_quit(void)
 	return ERROR_OK;
 }
 
-
-static const char * const bcm2835_transports[] = { "jtag", "swd", NULL };
+static const char *const bcm2835_transports[] = { "jtag", "swd", NULL };
 
 static struct jtag_interface bcm2835gpio_interface = {
 	.supported = DEBUG_CAP_TMS_SEQ,

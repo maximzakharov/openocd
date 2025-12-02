@@ -1012,6 +1012,26 @@ COMMAND_HANDLER(adapter_gpio_config_handler)
 			continue;
 		}
 
+		if (strcmp(CMD_ARGV[i], "-restore-mode") == 0) {
+			if (CMD_ARGC - i < 2) {
+				LOG_ERROR("-restore-mode option requires a parameter");
+				return ERROR_FAIL;
+			}
+			COMMAND_PARSE_NUMBER(uint, CMD_ARGV[i + 1], gpio_config->restore_mode);
+			i += 2;
+			continue;
+		}
+
+		if (strcmp(CMD_ARGV[i], "-swd-write-mode") == 0) {
+			if (CMD_ARGC - i < 2) {
+				LOG_ERROR("-swd-write-mode option requires a parameter");
+				return ERROR_FAIL;
+			}
+			COMMAND_PARSE_NUMBER(uint, CMD_ARGV[i + 1], gpio_config->swd_write_mode);
+			i += 2;
+			continue;
+		}
+
 		if (gpio_map[gpio_idx].permit_init_state_option) {
 			if (strcmp(CMD_ARGV[i], "-init-inactive") == 0) {
 				++i;

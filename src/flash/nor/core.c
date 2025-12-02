@@ -768,7 +768,7 @@ int flash_write_unlock_verify(struct target *target, struct image *image,
     {
         LOG_INFO("Programming FLASH (%d sections, %d bytes)...", image->num_sections, total_size);
     }
-        
+
 	qsort(sections, image->num_sections, sizeof(struct imagesection *),
 		compare_section);
 
@@ -780,12 +780,12 @@ int flash_write_unlock_verify(struct target *target, struct image *image,
 		target_addr_t run_address = sections[section]->base_address + section_offset;
 		uint32_t run_size = sections[section]->size - section_offset;
 		int pad_bytes = 0;
-    	
-    	if (!section_offset && target->report_flash_progress)
-    	{
-        	LOG_INFO("Programming FLASH section %d/%d (%d bytes) at 0x%08x...", section + 1, image->num_sections, sections[section]->size, sections[section]->base_address);
-    	}
-    	
+
+		if (!section_offset && target->report_flash_progress)
+		{
+			LOG_INFO("Programming FLASH section %d/%d (%d bytes) at " TARGET_ADDR_FMT "...", section + 1, image->num_sections, sections[section]->size, sections[section]->base_address);
+		}
+
 		if (sections[section]->size ==  0) {
 			LOG_WARNING("empty section %d", section);
 			section++;
@@ -1028,4 +1028,9 @@ struct flash_sector *alloc_block_array(uint32_t offset, uint32_t size,
 	}
 
 	return array;
+}
+
+void report_flash_progress(const char *op, uint64_t region_start, uint64_t region_end, const char *block_name)
+{
+    LOG_INFO("%s:0x%" PRIx64 "|0x%" PRIx64 "|%s", op, region_start, region_end, block_name);
 }

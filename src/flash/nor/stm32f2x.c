@@ -764,9 +764,10 @@ static int stm32x_write_block(struct flash_bank *bank, const uint8_t *buffer,
 			source->address, source->size,
 			write_algorithm->address, 0,
 			&armv7m_info);
-    
-    if (target->report_flash_progress)
+
+    if (target->report_flash_progress) {
         LOG_INFO("flash_write_done:%s", bank->name);
+    }
 
 	if (retval == ERROR_FLASH_OPERATION_FAILED) {
 		LOG_ERROR("error executing stm32x flash write algorithm");

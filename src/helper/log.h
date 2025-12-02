@@ -175,6 +175,9 @@ extern int debug_level;
 /* ERROR_TIMEOUT is already taken by winerror.h. */
 #define ERROR_TIMEOUT_REACHED			(-6)
 #define ERROR_NOT_IMPLEMENTED			(-7)
+#define ERROR_BAD_ARGUMENTS				(-8)
+#define ERROR_INSUFFICIENT_BUFFER		(-9)
+#define ERROR_TIMEOUT					(-10)
 
 
 #endif /* OPENOCD_HELPER_LOG_H */

@@ -980,9 +980,9 @@ COMMAND_HANDLER(psoc6_handle_reset_to_entry)
 {
 	if (CMD_ARGC < 1)
 		return ERROR_COMMAND_SYNTAX_ERROR;
-    
-    unsigned long long addr = 0;
-    COMMAND_PARSE_ADDRESS(CMD_ARGV[0], addr);
+
+	target_addr_t addr = 0;
+	COMMAND_PARSE_ADDRESS(CMD_ARGV[0], addr);
 
 	struct target *target = get_current_target(CMD_CTX);
     int hr = breakpoint_add(target, addr, 2, BKPT_HARD);
@@ -994,7 +994,8 @@ COMMAND_HANDLER(psoc6_handle_reset_to_entry)
     /* PSoC6 reboots immediatelly after issuing SYSRESETREQ / VECTRESET
      * this disables SWD/JTAG pins momentarily and may break communication
      * Ignoring return value of mem_ap_write_atomic_u32 seems to be ok here */
-    LOG_INFO("psoc6.cm0: bkpt @0x%08X, issuing SYSRESETREQ", addr);
+    LOG_INFO("psoc6.cm0: bkpt @" TARGET_ADDR_FMT ", issuing SYSRESETREQ", addr);
+
     mem_ap_write_atomic_u32(cm->debug_ap,
         NVIC_AIRCR,
         AIRCR_VECTKEY | AIRCR_SYSRESETREQ);

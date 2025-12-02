@@ -562,7 +562,7 @@ int mips32_init_arch_info(struct target *target, struct mips32_common *mips32, s
 	target->arch_info = mips32;
 	target->gdb_sign_extends_addresses = true;
 	target->ignored_breakpoint_address_bits = 1;
-	
+
 	mips32->common_magic = MIPS32_COMMON_MAGIC;
 	mips32->fast_data_area = NULL;
 	mips32->isa_imp = MIPS32_ONLY;	/* default */
@@ -1238,9 +1238,9 @@ int mips32_checksum_memory(struct target *target, target_addr_t address,
 
 	struct mips32_common *mips32 = target_to_mips32(target);
 	struct mips_ejtag *ejtag_info = &mips32->ejtag_info;
-	
+
 	if (mips32->isa_imp == MMIPS32_ONLY)
-		return E_FAIL;	//The code below uses the regular MIPS32 instruction set and won't work on MicroMIPS-only devices
+		return ERROR_FAIL;	//The code below uses the regular MIPS32 instruction set and won't work on MicroMIPS-only devices
 
 	/* see contrib/loaders/checksum/mips32.s for src */
 	uint32_t isa = ejtag_info->isa ? 1 : 0;

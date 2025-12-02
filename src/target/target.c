@@ -972,9 +972,10 @@ int target_run_flash_async_algorithm(struct target *target,
 		LOG_ERROR("error starting target flash write algorithm");
 		return retval;
 	}
-    
-    if (target->report_flash_progress)
+
+    if (target->report_flash_progress) {
         LOG_INFO("flash_write_progress_async_start:0x%x", block_size * count_orig);
+    }
 
 	while (count > 0) {
 
@@ -986,7 +987,7 @@ int target_run_flash_async_algorithm(struct target *target,
 
 		LOG_DEBUG("offs 0x%zx count 0x%" PRIx32 " wp 0x%" PRIx32 " rp 0x%" PRIx32,
 			(size_t) (buffer - buffer_orig), count, wp, rp);
-    	
+
 		if (rp == 0) {
 			LOG_ERROR("flash write algorithm aborted by target");
 			retval = ERROR_FLASH_OPERATION_FAILED;
@@ -1052,10 +1053,10 @@ int target_run_flash_async_algorithm(struct target *target,
 		retval = target_write_u32(target, wp_addr, wp);
 		if (retval != ERROR_OK)
 			break;
-    	
-    	if (target->report_flash_progress)
-    	    LOG_INFO("flash_write_progress_async:0x%x|0x%x", buffer - buffer_orig, block_size * count_orig);
 
+    	if (target->report_flash_progress) {
+         LOG_INFO("flash_write_progress_async:0x%" PRIx32 "|0x%" PRIx32, (uint32_t)(buffer - buffer_orig), (uint32_t)(block_size * count_orig));
+        }
 		/* Avoid GDB timeouts */
 		keep_alive();
 	}
@@ -1420,8 +1421,9 @@ int target_step(struct target *target,
 {
 	int retval;
 
-    if (target->rtos && target->rtos->type->step_hook && target->rtos->type->step_hook(target, current, address, handle_breakpoints) == ERROR_OK)
+    if (target->rtos && target->rtos->type->step_hook && target->rtos->type->step_hook(target, current, address, handle_breakpoints) == ERROR_OK) {
         return ERROR_OK;
+    }
 
 	target_call_event_callbacks(target, TARGET_EVENT_STEP_START);
 
@@ -3248,7 +3250,7 @@ int target_wait_state(struct target *target, enum target_state state, unsigned i
 				return ERROR_SERVER_INTERRUPTED;
 		}
 
-		if (ms >= 0 && ((cur-then) > ms)) {
+		if (ms > 0 && ((cur-then) > ms)) {
 			LOG_ERROR("timed out while waiting for target %s",
 				nvp_value2name(nvp_target_state, state)->name);
 			return ERROR_FAIL;
@@ -3472,7 +3474,7 @@ COMMAND_HANDLER(handle_md_command)
 		target_handle_md_output(CMD, target, address, size, count, buffer);
     else
     {
-        command_print(cmd, "0x%08x: ERROR %d", address, retval);
+        command_print(cmd, "" TARGET_ADDR_FMT ": ERROR %d", address, retval);
     }
 
 	free(buffer);
@@ -3595,35 +3597,35 @@ COMMAND_HANDLER(handle_mbatch_command)
 {
     if (CMD_ARGC < 2)
         return ERROR_COMMAND_SYNTAX_ERROR;
-    
+
     /*General syntax:
 		<Unique ID> <Subcommands>
-     
+
       Sub-command syntax:
 		w:<address>:<access size>:<count>:<hex-encoded data> - write data
 		r:<address>:<access size>:<count> - read data
-		
+
 	  Reply syntax for each subcommand:
 		<status>:<optional data>
 	*/
-    
+
     struct target *target = get_current_target(CMD_CTX);
     command_print_sameline(cmd, "mbatch(%s):", CMD_ARGV[0]);
-    
-    for (int i = 1; i < CMD_ARGC; i++)
+
+    for (unsigned int i = 1; i < CMD_ARGC; i++)
     {
         const char *pCmd = CMD_ARGV[i];
         const char *p = strchr(pCmd, ':');
-        
+
         int status = ERROR_OK;
         uint8_t *data = NULL;
         int printData = 0;
         uint64_t args[3] = { 0, };	//address, size, count
-        
+
         if (!p)
             status = -ERROR_BAD_ARGUMENTS;
-        
-        for (int j = 0; j < sizeof(args) / sizeof(args[0]); j++)
+
+        for (unsigned int j = 0; j < sizeof(args) / sizeof(args[0]); j++)
         {
             if (p)
             {
@@ -3634,17 +3636,17 @@ COMMAND_HANDLER(handle_mbatch_command)
                     status = -ERROR_BAD_ARGUMENTS;
                 else if (*end != ':' && *end != 0)
                     status = -ERROR_BAD_ARGUMENTS;
-                
+
                 p = end;
             }
         }
-        
+
         int bufferSize = (int)(args[1] * args[2]);
-        
+
         if (status == ERROR_OK)
         {
             data = (uint8_t *)malloc(bufferSize);
-            
+
             if (pCmd[0] == 'w')
             {
                 if (!p)
@@ -3652,7 +3654,7 @@ COMMAND_HANDLER(handle_mbatch_command)
                 else
                 {
                     int done = unhexify(data, p + 1, args[1] * args[2]);
-                    if (done != (args[1] * args[2]))
+                    if (done != (int)(args[1] * args[2]))
                         status = -ERROR_INSUFFICIENT_BUFFER;
                     else
 						status = target_write_memory(target, args[0], args[1], args[2], data);
@@ -3666,7 +3668,7 @@ COMMAND_HANDLER(handle_mbatch_command)
             else
                 status = -ERROR_BAD_ARGUMENTS;
         }
-        
+
         command_print_sameline(cmd, " %d", status);
         if (status >= 0 && printData && data)
         {
@@ -3675,12 +3677,12 @@ COMMAND_HANDLER(handle_mbatch_command)
             command_print_sameline(cmd, ":%s", formattedData);
             free(formattedData);
         }
-        
+
         if (data)
-            free(data);        
+            free(data);
     }
-    
-    command_print(cmd, "");
+
+    command_print(cmd, " ");
     return ERROR_OK;
 }
 
@@ -4802,7 +4804,7 @@ void target_handle_event(struct target *target, enum target_event e)
 
 			if ((teap->event == TARGET_EVENT_GDB_FLASH_ERASE_START || teap->event == TARGET_EVENT_GDB_FLASH_WRITE_END) && target->first_reset)
 				retval = JIM_OK;
-			else 
+			else
 				retval = Jim_EvalObj(teap->interp, teap->body);
 
 			cmd_ctx->current_target_override = saved_target_override;
@@ -6443,7 +6445,7 @@ static void binprint(struct command_invocation *cmd, const char *text, const uin
 		command_print_sameline(cmd, " %02x", buf[i]);
 	command_print(cmd, " ");
 }
-    
+
 #include <flash/nor/imp.h>
 
 COMMAND_HANDLER(handle_report_flash_progress)
@@ -6454,7 +6456,7 @@ COMMAND_HANDLER(handle_report_flash_progress)
         int new_val = 0;
         COMMAND_PARSE_ON_OFF(CMD_ARGV[0], new_val);
         target->report_flash_progress = new_val;
-        
+
         if (new_val)
         {
             for (struct flash_bank *bank = flash_bank_list(); bank; bank = bank->next)
@@ -6501,10 +6503,10 @@ COMMAND_HANDLER(handle_wait_for_stop)
         command_print(cmd, "Target successfully stopped");
 	else
         command_print(cmd, "Target did not halt within %d msec", timeout);
-	
+
     return ERROR_OK;
 }
-    
+
 
 COMMAND_HANDLER(handle_test_mem_access_command)
 {
